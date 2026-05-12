@@ -15,6 +15,9 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // URL base de Firebase Realtime Database
+        buildConfigField("String", "FIREBASE_BASE_URL", "\"https://weathertecproject-default-rtdb.firebaseio.com/\"")
     }
 
     buildTypes {
