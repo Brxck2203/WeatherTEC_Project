@@ -64,6 +64,9 @@ dependencies {
     implementation(libs.androidx.icons.extended)
     implementation(libs.androidx.activity.compose)
 
+    // Navigation Compose
+    implementation(libs.androidx.navigation.compose)
+
     // Lifecycle + ViewModel
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
