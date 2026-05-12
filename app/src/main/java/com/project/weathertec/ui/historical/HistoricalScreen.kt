@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.weathertec.data.model.WeatherRecord
+import com.project.weathertec.data.utils.StatsUtils
 import com.project.weathertec.ui.shared.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -32,7 +33,7 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SectionTitle("Buscar registros por fecha")
+            SectionTitle("Registros de Firebase por fecha")
             OutlinedTextField(
                 value = selectedDate,
                 onValueChange = { selectedDate = it },
@@ -50,17 +51,31 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
                 modifier = Modifier.fillMaxWidth(),
                 enabled = selectedDate.length == 10
             ) {
-                Text("Buscar")
+                Text("Buscar en Firebase")
             }
 
             if (searched) {
                 when (val state = recordsState) {
                     is UiState.Loading -> LoadingScreen()
-                    is UiState.Empty -> EmptyScreen("Sin registros para $selectedDate")
-                    is UiState.Error -> ErrorScreen(state.message)
+                    is UiState.Empty   -> EmptyScreen("Sin registros para ${StatsUtils.formatDate(selectedDate)}")
+                    is UiState.Error   -> ErrorScreen(state.message)
                     is UiState.Success -> {
-                        SectionTitle("${state.data.size} registro(s) para $selectedDate")
-                        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        SectionTitle("${state.data.size} registro(s) — ${StatsUtils.formatDate(selectedDate)}")
+                        LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            item {
+                                // Header
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 4.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    listOf("Hora", "Temp.", "Hum.", "Viento").forEach {
+                                        Text(it, style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                                    }
+                                }
+                            }
                             items(state.data) { record -> HistoricalRow(record) }
                         }
                     }
@@ -81,20 +96,20 @@ fun HistoricalRow(record: WeatherRecord) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(record.time, style = MaterialTheme.typography.titleMedium)
+            Text(record.time, style = MaterialTheme.typography.bodyMedium)
             Text(
-                record.temperature?.let { "%.1f°C".format(it) } ?: "--",
+                StatsUtils.formatValue(record.temperature) + "°C",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                record.humidity?.let { "%.0f%%".format(it) } ?: "--",
+                StatsUtils.formatValue(record.humidity, 0) + "%",
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                record.windSpeed?.let { "%.1fkm/h".format(it) } ?: "--",
+                StatsUtils.formatValue(record.windSpeed) + " km/h",
                 style = MaterialTheme.typography.bodyMedium
             )
         }

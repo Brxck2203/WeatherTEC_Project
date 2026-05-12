@@ -1,5 +1,9 @@
 package com.project.weathertec.data.model
 
+/**
+ * Modelo que refleja exactamente la estructura guardada en Firebase por la web:
+ * environmentalData/{date}/{HH-mm} -> { date, time, temperature, humidity, windSpeed, conditions, icon, source, timestamp }
+ */
 data class WeatherRecord(
     val date: String = "",
     val time: String = "",
