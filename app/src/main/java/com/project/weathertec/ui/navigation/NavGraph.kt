@@ -5,6 +5,8 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.padding
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import com.project.weathertec.ui.comparison.ComparisonScreen
@@ -65,7 +67,7 @@ fun AppNavigation() {
         NavHost(
             navController = navController,
             startDestination = Screen.Dashboard.route,
-            modifier = androidx.compose.ui.Modifier.padding(innerPadding)
+            modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Dashboard.route) { DashboardScreen(sharedVm) }
             composable(Screen.Hourly.route) { HourlyAverageScreen(sharedVm) }
