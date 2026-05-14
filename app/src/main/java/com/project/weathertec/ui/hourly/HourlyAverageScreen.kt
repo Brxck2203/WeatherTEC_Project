@@ -35,7 +35,7 @@ fun HourlyAverageScreen(vm: WeatherViewModel = viewModel()) {
     ) { padding ->
         when (val state = recordsState) {
             is UiState.Loading -> LoadingScreen()
-            is UiState.Empty   -> EmptyScreen("Sin datos para hoy en Firebase")
+            is UiState.Empty   -> EmptyScreen("Sin datos disponibles para hoy")
             is UiState.Error   -> ErrorScreen(state.message) { vm.loadDashboard() }
             is UiState.Success -> {
                 val records = state.data

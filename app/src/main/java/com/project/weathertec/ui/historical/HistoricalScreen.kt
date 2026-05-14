@@ -33,7 +33,7 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            SectionTitle("Registros de Firebase por fecha")
+            SectionTitle("Registros por fecha")
             OutlinedTextField(
                 value = selectedDate,
                 onValueChange = { selectedDate = it },
@@ -51,7 +51,7 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
                 modifier = Modifier.fillMaxWidth(),
                 enabled = selectedDate.length == 10
             ) {
-                Text("Buscar en Firebase")
+                Text("Buscar")
             }
 
             if (searched) {
@@ -63,7 +63,6 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
                         SectionTitle("${state.data.size} registro(s) — ${StatsUtils.formatDate(selectedDate)}")
                         LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             item {
-                                // Header
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
