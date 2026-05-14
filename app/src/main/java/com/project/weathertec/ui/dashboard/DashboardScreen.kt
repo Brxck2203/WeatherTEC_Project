@@ -47,18 +47,16 @@ fun DashboardScreen(vm: WeatherViewModel = viewModel()) {
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Último registro de Firebase = condición más reciente
-            SectionTitle("Última Lectura (Firebase)")
+            SectionTitle("Última Lectura")
             when (val state = latestState) {
                 is UiState.Loading -> CircularProgressIndicator()
                 is UiState.Success -> LatestRecordCard(state.data)
-                is UiState.Empty   -> EmptyScreen("Sin datos para hoy en Firebase.\nAsegúrate de que la web esté corriendo.")
+                is UiState.Empty   -> EmptyScreen("Sin datos disponibles para hoy.\nAsegúrate de que el servicio esté activo.")
                 is UiState.Error   -> ErrorScreen(state.message) { vm.loadDashboard() }
             }
 
             HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
-            // Estadísticas del día basadas en todos los registros de hoy
             SectionTitle("Resumen de Hoy")
             when (val state = recordsState) {
                 is UiState.Loading -> CircularProgressIndicator()
@@ -166,7 +164,7 @@ fun TodayStats(records: List<WeatherRecord>) {
     )
     Spacer(Modifier.height(4.dp))
     Text(
-        text = "${records.size} registro(s) de hoy en Firebase",
+        text = "${records.size} registro(s) del día",
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
     )
