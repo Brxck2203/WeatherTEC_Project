@@ -15,8 +15,6 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-
-        // URL base de Firebase Realtime Database
         buildConfigField("String", "FIREBASE_BASE_URL", "\"https://weathertecproject-default-rtdb.firebaseio.com/\"")
     }
 
@@ -48,14 +46,11 @@ android {
 }
 
 dependencies {
-    // Core
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.material)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.constraintlayout)
-
-    // Compose
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -63,26 +58,16 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.androidx.icons.extended)
     implementation(libs.androidx.activity.compose)
-
-    // Navigation Compose
     implementation(libs.androidx.navigation.compose)
-
-    // Lifecycle + ViewModel
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
-
-    // Retrofit + OkHttp (para leer Firebase)
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
-
-    // Coroutines
     implementation(libs.coroutines.android)
-
-    // Gson
     implementation(libs.gson)
-
-    // Tests
+    // Vico charts
+    implementation(libs.vico.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

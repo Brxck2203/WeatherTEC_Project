@@ -28,10 +28,11 @@ fun ComparisonScreen() {
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var compared by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableIntStateOf(0) }
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("↔️ Comparación") })
+            TopAppBar(title = { Text("⇔️ Comparación") })
         }
     ) { padding ->
         Column(
@@ -87,11 +88,50 @@ fun ComparisonScreen() {
                 if (records1.isEmpty() && records2.isEmpty()) {
                     EmptyScreen("Sin datos para las fechas seleccionadas")
                 } else {
-                    Divider()
-                    ComparisonTable(
-                        label1 = date1, records1 = records1,
-                        label2 = date2, records2 = records2
-                    )
+                    HorizontalDivider()
+
+                    // Tabs: tabla / gráficas
+                    TabRow(selectedTabIndex = selectedTab) {
+                        listOf("Tabla", "Temperatura", "Humedad", "Viento").forEachIndexed { i, t ->
+                            Tab(selected = selectedTab == i, onClick = { selectedTab = i }, text = { Text(t) })
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+
+                    val temps1  = records1.mapNotNull { it.temperature }
+                    val temps2  = records2.mapNotNull { it.temperature }
+                    val humids1 = records1.mapNotNull { it.humidity }
+                    val humids2 = records2.mapNotNull { it.humidity }
+                    val winds1  = records1.mapNotNull { it.windSpeed }
+                    val winds2  = records2.mapNotNull { it.windSpeed }
+
+                    when (selectedTab) {
+                        0 -> ComparisonTable(
+                            label1 = date1, records1 = records1,
+                            label2 = date2, records2 = records2
+                        )
+                        1 -> ComparisonBarChart(
+                            labels = listOf("Prom", "Máx", "Mín"),
+                            series1 = listOf(temps1.average(), temps1.maxOrNull() ?: 0.0, temps1.minOrNull() ?: 0.0),
+                            series2 = listOf(temps2.average(), temps2.maxOrNull() ?: 0.0, temps2.minOrNull() ?: 0.0),
+                            label1 = date1, label2 = date2,
+                            title = "Temperatura (°C) — $date1 vs $date2"
+                        )
+                        2 -> ComparisonBarChart(
+                            labels = listOf("Prom", "Máx", "Mín"),
+                            series1 = listOf(humids1.average(), humids1.maxOrNull() ?: 0.0, humids1.minOrNull() ?: 0.0),
+                            series2 = listOf(humids2.average(), humids2.maxOrNull() ?: 0.0, humids2.minOrNull() ?: 0.0),
+                            label1 = date1, label2 = date2,
+                            title = "Humedad (%) — $date1 vs $date2"
+                        )
+                        3 -> ComparisonBarChart(
+                            labels = listOf("Prom", "Máx", "Mín"),
+                            series1 = listOf(winds1.average(), winds1.maxOrNull() ?: 0.0, winds1.minOrNull() ?: 0.0),
+                            series2 = listOf(winds2.average(), winds2.maxOrNull() ?: 0.0, winds2.minOrNull() ?: 0.0),
+                            label1 = date1, label2 = date2,
+                            title = "Viento (km/h) — $date1 vs $date2"
+                        )
+                    }
                 }
             }
         }
@@ -111,24 +151,11 @@ fun ComparisonTable(
     val winds2 = records2.mapNotNull { it.windSpeed }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        SectionTitle("Comparación: $label1 vs $label2")
-
+        SectionTitle("$label1 vs $label2")
         ComparisonRow("Métrica", label1, label2, isHeader = true)
-        ComparisonRow(
-            "Temp. Prom",
-            temps1.avg("°C"),
-            temps2.avg("°C")
-        )
-        ComparisonRow(
-            "Temp. Máx",
-            temps1.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--",
-            temps2.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--"
-        )
-        ComparisonRow(
-            "Temp. Mín",
-            temps1.minOrNull()?.let { "%.1f°C".format(it) } ?: "--",
-            temps2.minOrNull()?.let { "%.1f°C".format(it) } ?: "--"
-        )
+        ComparisonRow("Temp. Prom", temps1.avg("°C"), temps2.avg("°C"))
+        ComparisonRow("Temp. Máx", temps1.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--", temps2.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--")
+        ComparisonRow("Temp. Mín", temps1.minOrNull()?.let { "%.1f°C".format(it) } ?: "--", temps2.minOrNull()?.let { "%.1f°C".format(it) } ?: "--")
         ComparisonRow("Hum. Prom", humids1.avg("%"), humids2.avg("%"))
         ComparisonRow("Viento Prom", winds1.avg("km/h"), winds2.avg("km/h"))
         ComparisonRow("Registros", "${records1.size}", "${records2.size}")
@@ -140,24 +167,19 @@ fun List<Double>.avg(unit: String): String =
 
 @Composable
 fun ComparisonRow(label: String, val1: String, val2: String, isHeader: Boolean = false) {
-    val style = if (isHeader) MaterialTheme.typography.titleSmall
-    else MaterialTheme.typography.bodyMedium
-    val containerColor = if (isHeader) MaterialTheme.colorScheme.primaryContainer
-    else MaterialTheme.colorScheme.surfaceVariant
-
+    val style = if (isHeader) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium
+    val containerColor = if (isHeader) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(label, style = style, modifier = Modifier.weight(1.5f))
-            Text(val1, style = style, modifier = Modifier.weight(1f))
-            Text(val2, style = style, modifier = Modifier.weight(1f))
+            Text(val1,  style = style, modifier = Modifier.weight(1f))
+            Text(val2,  style = style, modifier = Modifier.weight(1f))
         }
     }
 }
