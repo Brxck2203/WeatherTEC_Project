@@ -1,24 +1,26 @@
 package com.project.weathertec.ui.shared
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import com.patrykandpatrick.vico.compose.cartesian.*
-import com.patrykandpatrick.vico.compose.cartesian.axis.*
-import com.patrykandpatrick.vico.compose.cartesian.layer.*
-import com.patrykandpatrick.vico.compose.common.fill
-import com.patrykandpatrick.vico.core.cartesian.data.*
-import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
+import com.patrykandpatrick.vico.compose.axis.horizontal.rememberBottomAxis
+import com.patrykandpatrick.vico.compose.axis.vertical.rememberStartAxis
+import com.patrykandpatrick.vico.compose.chart.Chart
+import com.patrykandpatrick.vico.compose.chart.column.columnChart
+import com.patrykandpatrick.vico.compose.chart.line.lineChart
+import com.patrykandpatrick.vico.compose.chart.line.lineSpec
+import com.patrykandpatrick.vico.core.axis.AxisItemPlacer
+import com.patrykandpatrick.vico.core.chart.values.AxisValueOverrider
+import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
+import com.patrykandpatrick.vico.core.entry.entryOf
 
-/**
- * Gráfica de líneas para una sola variable.
- * [values] = lista de pares (etiqueta, valor)
- * [color] = color de la línea
- * [title] = título encima de la gráfica
- */
+// ─── Gráfica de líneas de UNA variable ──────────────────────────────────────
 @Composable
 fun SingleLineChart(
     values: List<Pair<String, Double>>,
@@ -28,105 +30,79 @@ fun SingleLineChart(
 ) {
     if (values.isEmpty()) return
 
-    val modelProducer = remember { CartesianChartModelProducer() }
-
+    val producer = remember { ChartEntryModelProducer() }
     LaunchedEffect(values) {
-        modelProducer.runTransaction {
-            lineSeries { series(values.map { it.second.toFloat() }) }
-        }
+        producer.setEntries(values.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.toFloat()) })
     }
 
     Column(modifier = modifier) {
         if (title.isNotEmpty()) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
+            Text(title, style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(bottom = 4.dp))
         }
-        CartesianChartHost(
-            chart = rememberCartesianChart(
-                rememberLineCartesianLayer(
-                    lineProvider = LineCartesianLayer.LineProvider.series(
-                        LineCartesianLayer.rememberLine(
-                            fill = LineCartesianLayer.LineFill.single(fill(color))
-                        )
-                    )
-                ),
-                startAxis = rememberStartAxis(),
-                bottomAxis = rememberBottomAxis(
-                    valueFormatter = { _, x, _ ->
-                        values.getOrNull(x.toInt())?.first ?: ""
-                    }
-                )
+        Chart(
+            chart = lineChart(
+                lines = listOf(lineSpec(lineColor = color))
             ),
-            modelProducer = modelProducer,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
+            chartModelProducer = producer,
+            startAxis = rememberStartAxis(),
+            bottomAxis = rememberBottomAxis(
+                valueFormatter = { value, _ ->
+                    values.getOrNull(value.toInt())?.first ?: ""
+                },
+                itemPlacer = AxisItemPlacer.Horizontal.default(spacing = maxOf(1, values.size / 6))
+            ),
+            modifier = Modifier.fillMaxWidth().height(200.dp)
         )
     }
 }
 
-/**
- * Gráfica de líneas con TRES series (temperatura, humedad, viento) superpuestas.
- * Solo muestra las que el usuario activa con checkboxes.
- */
+// ─── Gráfica de líneas de VARIAS variables (comparativa) ─────────────────────
 @Composable
 fun MultiLineChart(
     tempValues: List<Pair<String, Double>>,
-    humValues: List<Pair<String, Double>>,
+    humValues:  List<Pair<String, Double>>,
     windValues: List<Pair<String, Double>>,
     showTemp: Boolean = true,
-    showHum: Boolean = true,
+    showHum:  Boolean = true,
     showWind: Boolean = true,
     modifier: Modifier = Modifier
 ) {
-    val activeSeries = buildList {
-        if (showTemp && tempValues.isNotEmpty()) add(tempValues to Color(0xFFE57373))
-        if (showHum  && humValues.isNotEmpty())  add(humValues  to Color(0xFF64B5F6))
-        if (showWind && windValues.isNotEmpty()) add(windValues to Color(0xFF81C784))
+    data class Serie(val points: List<Pair<String, Double>>, val color: Color)
+
+    val active = buildList {
+        if (showTemp && tempValues.isNotEmpty()) add(Serie(tempValues, Color(0xFFE57373)))
+        if (showHum  && humValues.isNotEmpty())  add(Serie(humValues,  Color(0xFF64B5F6)))
+        if (showWind && windValues.isNotEmpty()) add(Serie(windValues, Color(0xFF81C784)))
     }
-    if (activeSeries.isEmpty()) return
+    if (active.isEmpty()) return
 
-    val labels = activeSeries.first().first.map { it.first }
-    val modelProducer = remember(showTemp, showHum, showWind) { CartesianChartModelProducer() }
+    val labels = active.first().points.map { it.first }
+    val producer = remember { ChartEntryModelProducer() }
 
-    LaunchedEffect(showTemp, showHum, showWind, tempValues, humValues, windValues) {
-        modelProducer.runTransaction {
-            activeSeries.forEach { (series, _) ->
-                lineSeries { series(series.map { it.second.toFloat() }) }
+    LaunchedEffect(showTemp, showHum, showWind, tempValues.size, humValues.size, windValues.size) {
+        producer.setEntries(
+            active.map { serie ->
+                serie.points.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.toFloat()) }
             }
-        }
+        )
     }
 
-    CartesianChartHost(
-        chart = rememberCartesianChart(
-            rememberLineCartesianLayer(
-                lineProvider = LineCartesianLayer.LineProvider.series(
-                    activeSeries.map { (_, color) ->
-                        LineCartesianLayer.rememberLine(
-                            fill = LineCartesianLayer.LineFill.single(fill(color))
-                        )
-                    }
-                )
-            ),
-            startAxis = rememberStartAxis(),
-            bottomAxis = rememberBottomAxis(
-                valueFormatter = { _, x, _ -> labels.getOrNull(x.toInt()) ?: "" }
-            )
+    Chart(
+        chart = lineChart(
+            lines = active.map { lineSpec(lineColor = it.color) }
         ),
-        modelProducer = modelProducer,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(220.dp)
+        chartModelProducer = producer,
+        startAxis = rememberStartAxis(),
+        bottomAxis = rememberBottomAxis(
+            valueFormatter = { value, _ -> labels.getOrNull(value.toInt()) ?: "" },
+            itemPlacer = AxisItemPlacer.Horizontal.default(spacing = maxOf(1, labels.size / 6))
+        ),
+        modifier = modifier.fillMaxWidth().height(220.dp)
     )
 }
 
-/**
- * Gráfica de barras.
- * [series] = lista de pares (etiqueta eje X, valor)
- */
+// ─── Gráfica de barras de UNA variable ───────────────────────────────────────
 @Composable
 fun BarChart(
     series: List<Pair<String, Double>>,
@@ -136,43 +112,30 @@ fun BarChart(
 ) {
     if (series.isEmpty()) return
 
-    val modelProducer = remember { CartesianChartModelProducer() }
-
+    val producer = remember { ChartEntryModelProducer() }
     LaunchedEffect(series) {
-        modelProducer.runTransaction {
-            columnSeries { series(series.map { it.second.toFloat() }) }
-        }
+        producer.setEntries(series.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.toFloat()) })
     }
 
     Column(modifier = modifier) {
         if (title.isNotEmpty()) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
+            Text(title, style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(bottom = 4.dp))
         }
-        CartesianChartHost(
-            chart = rememberCartesianChart(
-                rememberColumnCartesianLayer(),
-                startAxis = rememberStartAxis(),
-                bottomAxis = rememberBottomAxis(
-                    valueFormatter = { _, x, _ ->
-                        series.getOrNull(x.toInt())?.first ?: ""
-                    }
-                )
+        Chart(
+            chart = columnChart(),
+            chartModelProducer = producer,
+            startAxis = rememberStartAxis(),
+            bottomAxis = rememberBottomAxis(
+                valueFormatter = { value, _ -> series.getOrNull(value.toInt())?.first ?: "" },
+                itemPlacer = AxisItemPlacer.Horizontal.default(spacing = maxOf(1, series.size / 6))
             ),
-            modelProducer = modelProducer,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
+            modifier = Modifier.fillMaxWidth().height(200.dp)
         )
     }
 }
 
-/**
- * Gráfica de barras comparativa: dos series (día 1 vs día 2) por variable.
- */
+// ─── Gráfica de barras COMPARATIVA (2 series) ────────────────────────────────
 @Composable
 fun ComparisonBarChart(
     labels: List<String>,
@@ -185,59 +148,51 @@ fun ComparisonBarChart(
 ) {
     if (series1.isEmpty() && series2.isEmpty()) return
 
-    val modelProducer = remember { CartesianChartModelProducer() }
-
+    val producer = remember { ChartEntryModelProducer() }
     LaunchedEffect(series1, series2) {
-        modelProducer.runTransaction {
-            columnSeries {
-                series(series1.map { it.toFloat() })
-                series(series2.map { it.toFloat() })
-            }
-        }
+        producer.setEntries(
+            listOf(
+                series1.mapIndexed { i, v -> entryOf(i.toFloat(), v.toFloat()) },
+                series2.mapIndexed { i, v -> entryOf(i.toFloat(), v.toFloat()) }
+            )
+        )
     }
 
     Column(modifier = modifier) {
         if (title.isNotEmpty()) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.padding(bottom = 4.dp)
-            )
+            Text(title, style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(bottom = 4.dp))
         }
-        // Leyenda manual
         Row(
-            modifier = Modifier.padding(bottom = 4.dp),
+            modifier = Modifier.padding(bottom = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             LegendItem(color = Color(0xFF5C6BC0), label = label1)
             LegendItem(color = Color(0xFF26A69A), label = label2)
         }
-        CartesianChartHost(
-            chart = rememberCartesianChart(
-                rememberColumnCartesianLayer(),
-                startAxis = rememberStartAxis(),
-                bottomAxis = rememberBottomAxis(
-                    valueFormatter = { _, x, _ -> labels.getOrNull(x.toInt()) ?: "" }
-                )
+        Chart(
+            chart = columnChart(),
+            chartModelProducer = producer,
+            startAxis = rememberStartAxis(),
+            bottomAxis = rememberBottomAxis(
+                valueFormatter = { value, _ -> labels.getOrNull(value.toInt()) ?: "" }
             ),
-            modelProducer = modelProducer,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(220.dp)
+            modifier = Modifier.fillMaxWidth().height(220.dp)
         )
     }
 }
 
+// ─── Punto de leyenda ─────────────────────────────────────────────────────────
 @Composable
 fun LegendItem(color: Color, label: String) {
     Row(
-        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Box(
             modifier = Modifier
                 .size(12.dp)
-                .background(color, shape = androidx.compose.foundation.shape.CircleShape)
+                .background(color, CircleShape)
         )
         Text(label, style = MaterialTheme.typography.labelSmall)
     }

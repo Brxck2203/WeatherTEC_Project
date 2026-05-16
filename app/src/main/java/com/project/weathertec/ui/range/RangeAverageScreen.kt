@@ -91,6 +91,7 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
                         val tempStats = StatsUtils.calcStats(StatsUtils.getValues(records, "temperature"))
                         val humStats  = StatsUtils.calcStats(StatsUtils.getValues(records, "humidity"))
                         val windStats = StatsUtils.calcStats(StatsUtils.getValues(records, "windSpeed"))
+                        // CORREGIDO: DayGroup usa .date, no .day
                         val dayGroups = StatsUtils.groupByDay(records, "temperature")
                         val humDays   = StatsUtils.groupByDay(records, "humidity")
                         val windDays  = StatsUtils.groupByDay(records, "windSpeed")
@@ -129,9 +130,9 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
                         Spacer(Modifier.height(8.dp))
 
                         when (selectedTab) {
-                            // Gráfica de barras por día
                             0 -> {
-                                val dayLabels = dayGroups.map { it.day.takeLast(5) }
+                                // CORREGIDO: usa .date en lugar de .day
+                                val dayLabels = dayGroups.map { it.date.takeLast(5) }
                                 var barTab by remember { mutableIntStateOf(0) }
                                 TabRow(selectedTabIndex = barTab) {
                                     listOf("Temperatura", "Humedad", "Viento").forEachIndexed { i, t ->
@@ -157,9 +158,9 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
                                     )
                                 }
                             }
-                            // Gráfica de líneas con evolución temporal
                             1 -> {
-                                val dayLabels = dayGroups.map { it.day.takeLast(5) }
+                                // CORREGIDO: usa .date
+                                val dayLabels = dayGroups.map { it.date.takeLast(5) }
                                 MultiLineChart(
                                     tempValues = dayLabels.zip(dayGroups.map { it.stats?.avg ?: 0.0 }),
                                     humValues  = dayLabels.zip(humDays.map { it.stats?.avg ?: 0.0 }),
