@@ -14,6 +14,10 @@ import com.project.weathertec.data.model.WeatherRecord
 import com.project.weathertec.data.repository.WeatherRepository
 import com.project.weathertec.ui.shared.*
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,6 +34,68 @@ fun ComparisonScreen() {
     var compared by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
 
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+    // Hoy en UTC ms — el tope que no se debe superar
+    val todayUtcMillis = remember {
+        LocalDate.now().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+    }
+    val currentYear = remember { LocalDate.now().year }
+
+    // Restricción común: no fechas futuras
+    val noFutureDates = object : SelectableDates {
+        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+            return utcTimeMillis <= todayUtcMillis
+        }
+        override fun isSelectableYear(year: Int): Boolean {
+            return year <= currentYear
+        }
+    }
+
+    val picker1State = rememberDatePickerState(selectableDates = noFutureDates)
+    var showPicker1 by remember { mutableStateOf(false) }
+
+    val picker2State = rememberDatePickerState(selectableDates = noFutureDates)
+    var showPicker2 by remember { mutableStateOf(false) }
+
+    if (showPicker1) {
+        DatePickerDialog(
+            onDismissRequest = { showPicker1 = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    picker1State.selectedDateMillis?.let { millis ->
+                        date1 = Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC).format(formatter)
+                    }
+                    showPicker1 = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker1 = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = picker1State)
+        }
+    }
+
+    if (showPicker2) {
+        DatePickerDialog(
+            onDismissRequest = { showPicker2 = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    picker2State.selectedDateMillis?.let { millis ->
+                        date2 = Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC).format(formatter)
+                    }
+                    showPicker2 = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker2 = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = picker2State)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(title = { Text("⇔️ Comparación") })
@@ -44,20 +110,35 @@ fun ComparisonScreen() {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SectionTitle("Compara dos días")
+
             OutlinedTextField(
                 value = date1,
-                onValueChange = { date1 = it },
-                label = { Text("Fecha 1 (YYYY-MM-DD)") },
-                leadingIcon = { Icon(Icons.Default.DateRange, null) },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Fecha 1") },
+                placeholder = { Text("Selecciona la primera fecha") },
+                leadingIcon = {
+                    IconButton(onClick = { showPicker1 = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Abrir calendario 1")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
+
             OutlinedTextField(
                 value = date2,
-                onValueChange = { date2 = it },
-                label = { Text("Fecha 2 (YYYY-MM-DD)") },
-                leadingIcon = { Icon(Icons.Default.DateRange, null) },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Fecha 2") },
+                placeholder = { Text("Selecciona la segunda fecha") },
+                leadingIcon = {
+                    IconButton(onClick = { showPicker2 = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Abrir calendario 2")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
+
             Button(
                 onClick = {
                     if (date1.length == 10 && date2.length == 10) {
@@ -90,7 +171,6 @@ fun ComparisonScreen() {
                 } else {
                     HorizontalDivider()
 
-                    // Tabs: tabla / gráficas
                     TabRow(selectedTabIndex = selectedTab) {
                         listOf("Tabla", "Temperatura", "Humedad", "Viento").forEachIndexed { i, t ->
                             Tab(selected = selectedTab == i, onClick = { selectedTab = i }, text = { Text(t) })

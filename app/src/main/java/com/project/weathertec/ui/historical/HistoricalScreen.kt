@@ -14,6 +14,10 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.weathertec.data.model.WeatherRecord
 import com.project.weathertec.data.utils.StatsUtils
 import com.project.weathertec.ui.shared.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,6 +26,45 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
     val recordsState by vm.records.collectAsState()
     var searched by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
+
+    // Milisegundos de "hoy" en UTC para limitar el selector
+    val todayUtcMillis = remember {
+        LocalDate.now().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+    }
+
+    val datePickerState = rememberDatePickerState(
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                return utcTimeMillis <= todayUtcMillis
+            }
+            override fun isSelectableYear(year: Int): Boolean {
+                return year <= LocalDate.now().year
+            }
+        }
+    )
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+                        selectedDate = Instant.ofEpochMilli(millis)
+                            .atOffset(ZoneOffset.UTC)
+                            .format(formatter)
+                    }
+                    showDatePicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -36,13 +79,21 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SectionTitle("Registros por fecha")
+
             OutlinedTextField(
                 value = selectedDate,
-                onValueChange = { selectedDate = it },
-                label = { Text("Fecha (YYYY-MM-DD)") },
-                leadingIcon = { Icon(Icons.Default.DateRange, null) },
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Fecha") },
+                placeholder = { Text("Selecciona una fecha") },
+                leadingIcon = {
+                    IconButton(onClick = { showDatePicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Abrir calendario")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             )
+
             Button(
                 onClick = {
                     if (selectedDate.length == 10) {
@@ -67,7 +118,6 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
                         val humVals  = records.mapNotNull { it.humidity }
                         val windVals = records.mapNotNull { it.windSpeed }
 
-                        // Panel resumen máx/mín/prom
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -77,7 +127,6 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
                             StatCard("T. Mín",  "%.1f".format(tempVals.min()),     "°C", modifier = Modifier.weight(1f))
                         }
 
-                        // Tabs: gráfica variable / comparativa / tabla
                         TabRow(selectedTabIndex = selectedTab) {
                             listOf("Por variable", "Comparativa", "Tabla").forEachIndexed { i, t ->
                                 Tab(selected = selectedTab == i, onClick = { selectedTab = i }, text = { Text(t) })
@@ -140,9 +189,7 @@ fun HistoricalScreen(vm: WeatherViewModel = viewModel()) {
 fun HistoricalRow(record: WeatherRecord) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
     ) {
         Row(
             modifier = Modifier

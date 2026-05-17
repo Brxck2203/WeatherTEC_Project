@@ -13,6 +13,10 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.weathertec.data.utils.StatsUtils
 import com.project.weathertec.ui.shared.*
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,7 +26,84 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
     val recordsState by vm.records.collectAsState()
     var searched by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableIntStateOf(0) }
-    val dateError = startDate.length == 10 && endDate.length == 10 && endDate < startDate
+
+    val dateError = startDate.length == 10 && endDate.length == 10 && startDate > endDate
+
+    // Hoy en UTC ms — el tope que no se debe superar
+    val todayUtcMillis = remember {
+        LocalDate.now().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+    }
+    val currentYear = remember { LocalDate.now().year }
+
+    // DatePicker para fecha inicio (no permite fechas futuras)
+    val startPickerState = rememberDatePickerState(
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                return utcTimeMillis <= todayUtcMillis
+            }
+            override fun isSelectableYear(year: Int): Boolean {
+                return year <= currentYear
+            }
+        }
+    )
+    var showStartPicker by remember { mutableStateOf(false) }
+
+    // DatePicker para fecha fin — no fechas futuras y no antes de startDate
+    val endPickerState = rememberDatePickerState(
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                if (utcTimeMillis > todayUtcMillis) return false
+                if (startDate.length < 10) return true
+                val startMillis = startDate.toEpochMillis()
+                return utcTimeMillis >= startMillis
+            }
+            override fun isSelectableYear(year: Int): Boolean {
+                return year <= currentYear
+            }
+        }
+    )
+    var showEndPicker by remember { mutableStateOf(false) }
+
+    val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
+
+    if (showStartPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showStartPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    startPickerState.selectedDateMillis?.let { millis ->
+                        startDate = Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC).format(formatter)
+                        if (endDate.isNotEmpty() && endDate < startDate) endDate = ""
+                    }
+                    showStartPicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartPicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = startPickerState)
+        }
+    }
+
+    if (showEndPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showEndPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    endPickerState.selectedDateMillis?.let { millis ->
+                        endDate = Instant.ofEpochMilli(millis).atOffset(ZoneOffset.UTC).format(formatter)
+                    }
+                    showEndPicker = false
+                }) { Text("Aceptar") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndPicker = false }) { Text("Cancelar") }
+            }
+        ) {
+            DatePicker(state = endPickerState)
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -38,29 +119,37 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             SectionTitle("Selecciona un rango de fechas")
-            Text(
-                "Formato: YYYY-MM-DD",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-            )
+
             OutlinedTextField(
                 value = startDate,
-                onValueChange = { startDate = it },
+                onValueChange = {},
+                readOnly = true,
                 label = { Text("Fecha inicio") },
-                placeholder = { Text("2026-05-01") },
-                leadingIcon = { Icon(Icons.Default.DateRange, null) },
+                placeholder = { Text("Selecciona fecha de inicio") },
+                leadingIcon = {
+                    IconButton(onClick = { showStartPicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Abrir calendario inicio")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 isError = dateError
             )
+
             OutlinedTextField(
                 value = endDate,
-                onValueChange = { endDate = it },
+                onValueChange = {},
+                readOnly = true,
                 label = { Text("Fecha fin") },
-                placeholder = { Text("2026-05-12") },
-                leadingIcon = { Icon(Icons.Default.DateRange, null) },
+                placeholder = { Text("Selecciona fecha de fin") },
+                leadingIcon = {
+                    IconButton(onClick = { showEndPicker = true }) {
+                        Icon(Icons.Default.DateRange, contentDescription = "Abrir calendario fin")
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
                 isError = dateError
             )
+
             if (dateError) {
                 Text(
                     "⚠️ La fecha fin debe ser posterior a la fecha inicio",
@@ -68,6 +157,7 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
                     color = MaterialTheme.colorScheme.error
                 )
             }
+
             Button(
                 onClick = {
                     if (startDate.length == 10 && endDate.length == 10 && !dateError) {
@@ -91,7 +181,6 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
                         val tempStats = StatsUtils.calcStats(StatsUtils.getValues(records, "temperature"))
                         val humStats  = StatsUtils.calcStats(StatsUtils.getValues(records, "humidity"))
                         val windStats = StatsUtils.calcStats(StatsUtils.getValues(records, "windSpeed"))
-                        // CORREGIDO: DayGroup usa .date, no .day
                         val dayGroups = StatsUtils.groupByDay(records, "temperature")
                         val humDays   = StatsUtils.groupByDay(records, "humidity")
                         val windDays  = StatsUtils.groupByDay(records, "windSpeed")
@@ -102,7 +191,6 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
                             style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(4.dp))
 
-                        // Panel resumen
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -121,7 +209,6 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
 
                         Spacer(Modifier.height(8.dp))
 
-                        // Tabs de gráficas
                         TabRow(selectedTabIndex = selectedTab) {
                             listOf("Barras x día", "Líneas").forEachIndexed { i, t ->
                                 Tab(selected = selectedTab == i, onClick = { selectedTab = i }, text = { Text(t) })
@@ -131,7 +218,6 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
 
                         when (selectedTab) {
                             0 -> {
-                                // CORREGIDO: usa .date en lugar de .day
                                 val dayLabels = dayGroups.map { it.date.takeLast(5) }
                                 var barTab by remember { mutableIntStateOf(0) }
                                 TabRow(selectedTabIndex = barTab) {
@@ -159,7 +245,6 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
                                 }
                             }
                             1 -> {
-                                // CORREGIDO: usa .date
                                 val dayLabels = dayGroups.map { it.date.takeLast(5) }
                                 MultiLineChart(
                                     tempValues = dayLabels.zip(dayGroups.map { it.stats?.avg ?: 0.0 }),
@@ -173,4 +258,15 @@ fun RangeAverageScreen(vm: WeatherViewModel = viewModel()) {
             }
         }
     }
+}
+
+private fun String.toEpochMillis(): Long {
+    return try {
+        val parts = this.split("-")
+        val year = parts[0].toInt(); val month = parts[1].toInt(); val day = parts[2].toInt()
+        java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC")).also {
+            it.set(year, month - 1, day, 0, 0, 0)
+            it.set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    } catch (e: Exception) { 0L }
 }
