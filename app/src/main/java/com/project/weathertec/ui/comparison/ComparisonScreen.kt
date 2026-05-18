@@ -9,7 +9,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.project.weathertec.data.model.WeatherRecord
 import com.project.weathertec.data.repository.WeatherRepository
 import com.project.weathertec.ui.shared.*
@@ -18,6 +17,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+
+// Extensión segura: average() que nunca devuelve NaN
+private fun List<Double>.safeAverage(): Double = if (isEmpty()) 0.0 else average()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,20 +38,14 @@ fun ComparisonScreen() {
 
     val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd")
 
-    // Hoy en UTC ms — el tope que no se debe superar
     val todayUtcMillis = remember {
         LocalDate.now().atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
     }
     val currentYear = remember { LocalDate.now().year }
 
-    // Restricción común: no fechas futuras
     val noFutureDates = object : SelectableDates {
-        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-            return utcTimeMillis <= todayUtcMillis
-        }
-        override fun isSelectableYear(year: Int): Boolean {
-            return year <= currentYear
-        }
+        override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis <= todayUtcMillis
+        override fun isSelectableYear(year: Int): Boolean = year <= currentYear
     }
 
     val picker1State = rememberDatePickerState(selectableDates = noFutureDates)
@@ -72,9 +68,7 @@ fun ComparisonScreen() {
             dismissButton = {
                 TextButton(onClick = { showPicker1 = false }) { Text("Cancelar") }
             }
-        ) {
-            DatePicker(state = picker1State)
-        }
+        ) { DatePicker(state = picker1State) }
     }
 
     if (showPicker2) {
@@ -91,15 +85,11 @@ fun ComparisonScreen() {
             dismissButton = {
                 TextButton(onClick = { showPicker2 = false }) { Text("Cancelar") }
             }
-        ) {
-            DatePicker(state = picker2State)
-        }
+        ) { DatePicker(state = picker2State) }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(title = { Text("⇔️ Comparación") })
-        }
+        topBar = { TopAppBar(title = { Text("⇔️ Comparación") }) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -159,9 +149,7 @@ fun ComparisonScreen() {
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = date1.length == 10 && date2.length == 10
-            ) {
-                Text("Comparar")
-            }
+            ) { Text("Comparar") }
 
             if (loading) LoadingScreen()
             else if (error != null) ErrorScreen(error!!)
@@ -178,6 +166,7 @@ fun ComparisonScreen() {
                     }
                     Spacer(Modifier.height(8.dp))
 
+                    // Extraer listas de valores — seguro aunque estén vacías
                     val temps1  = records1.mapNotNull { it.temperature }
                     val temps2  = records2.mapNotNull { it.temperature }
                     val humids1 = records1.mapNotNull { it.humidity }
@@ -190,27 +179,69 @@ fun ComparisonScreen() {
                             label1 = date1, records1 = records1,
                             label2 = date2, records2 = records2
                         )
-                        1 -> ComparisonBarChart(
-                            labels = listOf("Prom", "Máx", "Mín"),
-                            series1 = listOf(temps1.average(), temps1.maxOrNull() ?: 0.0, temps1.minOrNull() ?: 0.0),
-                            series2 = listOf(temps2.average(), temps2.maxOrNull() ?: 0.0, temps2.minOrNull() ?: 0.0),
-                            label1 = date1, label2 = date2,
-                            title = "Temperatura (°C) — $date1 vs $date2"
-                        )
-                        2 -> ComparisonBarChart(
-                            labels = listOf("Prom", "Máx", "Mín"),
-                            series1 = listOf(humids1.average(), humids1.maxOrNull() ?: 0.0, humids1.minOrNull() ?: 0.0),
-                            series2 = listOf(humids2.average(), humids2.maxOrNull() ?: 0.0, humids2.minOrNull() ?: 0.0),
-                            label1 = date1, label2 = date2,
-                            title = "Humedad (%) — $date1 vs $date2"
-                        )
-                        3 -> ComparisonBarChart(
-                            labels = listOf("Prom", "Máx", "Mín"),
-                            series1 = listOf(winds1.average(), winds1.maxOrNull() ?: 0.0, winds1.minOrNull() ?: 0.0),
-                            series2 = listOf(winds2.average(), winds2.maxOrNull() ?: 0.0, winds2.minOrNull() ?: 0.0),
-                            label1 = date1, label2 = date2,
-                            title = "Viento (km/h) — $date1 vs $date2"
-                        )
+                        1 -> {
+                            if (temps1.isEmpty() && temps2.isEmpty()) {
+                                EmptyScreen("Sin datos de temperatura para las fechas seleccionadas")
+                            } else {
+                                ComparisonBarChart(
+                                    labels = listOf("Prom", "Máx", "Mín"),
+                                    series1 = listOf(
+                                        temps1.safeAverage(),
+                                        temps1.maxOrNull() ?: 0.0,
+                                        temps1.minOrNull() ?: 0.0
+                                    ),
+                                    series2 = listOf(
+                                        temps2.safeAverage(),
+                                        temps2.maxOrNull() ?: 0.0,
+                                        temps2.minOrNull() ?: 0.0
+                                    ),
+                                    label1 = date1, label2 = date2,
+                                    title = "Temperatura (°C) — $date1 vs $date2"
+                                )
+                            }
+                        }
+                        2 -> {
+                            if (humids1.isEmpty() && humids2.isEmpty()) {
+                                EmptyScreen("Sin datos de humedad para las fechas seleccionadas")
+                            } else {
+                                ComparisonBarChart(
+                                    labels = listOf("Prom", "Máx", "Mín"),
+                                    series1 = listOf(
+                                        humids1.safeAverage(),
+                                        humids1.maxOrNull() ?: 0.0,
+                                        humids1.minOrNull() ?: 0.0
+                                    ),
+                                    series2 = listOf(
+                                        humids2.safeAverage(),
+                                        humids2.maxOrNull() ?: 0.0,
+                                        humids2.minOrNull() ?: 0.0
+                                    ),
+                                    label1 = date1, label2 = date2,
+                                    title = "Humedad (%) — $date1 vs $date2"
+                                )
+                            }
+                        }
+                        3 -> {
+                            if (winds1.isEmpty() && winds2.isEmpty()) {
+                                EmptyScreen("Sin datos de viento para las fechas seleccionadas")
+                            } else {
+                                ComparisonBarChart(
+                                    labels = listOf("Prom", "Máx", "Mín"),
+                                    series1 = listOf(
+                                        winds1.safeAverage(),
+                                        winds1.maxOrNull() ?: 0.0,
+                                        winds1.minOrNull() ?: 0.0
+                                    ),
+                                    series2 = listOf(
+                                        winds2.safeAverage(),
+                                        winds2.maxOrNull() ?: 0.0,
+                                        winds2.minOrNull() ?: 0.0
+                                    ),
+                                    label1 = date1, label2 = date2,
+                                    title = "Viento (km/h) — $date1 vs $date2"
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -223,22 +254,22 @@ fun ComparisonTable(
     label1: String, records1: List<WeatherRecord>,
     label2: String, records2: List<WeatherRecord>
 ) {
-    val temps1 = records1.mapNotNull { it.temperature }
-    val temps2 = records2.mapNotNull { it.temperature }
+    val temps1  = records1.mapNotNull { it.temperature }
+    val temps2  = records2.mapNotNull { it.temperature }
     val humids1 = records1.mapNotNull { it.humidity }
     val humids2 = records2.mapNotNull { it.humidity }
-    val winds1 = records1.mapNotNull { it.windSpeed }
-    val winds2 = records2.mapNotNull { it.windSpeed }
+    val winds1  = records1.mapNotNull { it.windSpeed }
+    val winds2  = records2.mapNotNull { it.windSpeed }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SectionTitle("$label1 vs $label2")
         ComparisonRow("Métrica", label1, label2, isHeader = true)
-        ComparisonRow("Temp. Prom", temps1.avg("°C"), temps2.avg("°C"))
-        ComparisonRow("Temp. Máx", temps1.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--", temps2.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--")
-        ComparisonRow("Temp. Mín", temps1.minOrNull()?.let { "%.1f°C".format(it) } ?: "--", temps2.minOrNull()?.let { "%.1f°C".format(it) } ?: "--")
-        ComparisonRow("Hum. Prom", humids1.avg("%"), humids2.avg("%"))
-        ComparisonRow("Viento Prom", winds1.avg("km/h"), winds2.avg("km/h"))
-        ComparisonRow("Registros", "${records1.size}", "${records2.size}")
+        ComparisonRow("Temp. Prom",  temps1.avg("°C"),    temps2.avg("°C"))
+        ComparisonRow("Temp. Máx",   temps1.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--", temps2.maxOrNull()?.let { "%.1f°C".format(it) } ?: "--")
+        ComparisonRow("Temp. Mín",   temps1.minOrNull()?.let { "%.1f°C".format(it) } ?: "--", temps2.minOrNull()?.let { "%.1f°C".format(it) } ?: "--")
+        ComparisonRow("Hum. Prom",   humids1.avg("%"),    humids2.avg("%"))
+        ComparisonRow("Viento Prom", winds1.avg("km/h"),  winds2.avg("km/h"))
+        ComparisonRow("Registros",   "${records1.size}",  "${records2.size}")
     }
 }
 
