@@ -19,6 +19,10 @@ import com.patrykandpatrick.vico.core.axis.AxisItemPlacer
 import com.patrykandpatrick.vico.core.entry.ChartEntryModelProducer
 import com.patrykandpatrick.vico.core.entry.entryOf
 
+// Convierte Double a Float de forma segura: NaN/Infinity → 0f
+private fun Double.safeFloat(): Float =
+    if (isNaN() || isInfinite()) 0f else toFloat()
+
 // ─── Gráfica de líneas de UNA variable ──────────────────────────────────────
 @Composable
 fun SingleLineChart(
@@ -30,8 +34,8 @@ fun SingleLineChart(
     if (values.isEmpty()) return
 
     val producer = remember { ChartEntryModelProducer() }
-    LaunchedEffect(values) {
-        producer.setEntries(values.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.toFloat()) })
+    LaunchedEffect(values.size) {
+        producer.setEntries(values.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.safeFloat()) })
     }
 
     Column(modifier = modifier) {
@@ -40,15 +44,11 @@ fun SingleLineChart(
                 modifier = Modifier.padding(bottom = 4.dp))
         }
         Chart(
-            chart = lineChart(
-                lines = listOf(lineSpec(lineColor = color))
-            ),
+            chart = lineChart(lines = listOf(lineSpec(lineColor = color))),
             chartModelProducer = producer,
             startAxis = rememberStartAxis(),
             bottomAxis = rememberBottomAxis(
-                valueFormatter = { value, _ ->
-                    values.getOrNull(value.toInt())?.first ?: ""
-                },
+                valueFormatter = { value, _ -> values.getOrNull(value.toInt())?.first ?: "" },
                 itemPlacer = AxisItemPlacer.Horizontal.default(spacing = maxOf(1, values.size / 6))
             ),
             modifier = Modifier.fillMaxWidth().height(200.dp)
@@ -82,15 +82,13 @@ fun MultiLineChart(
     LaunchedEffect(showTemp, showHum, showWind, tempValues.size, humValues.size, windValues.size) {
         producer.setEntries(
             active.map { serie ->
-                serie.points.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.toFloat()) }
+                serie.points.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.safeFloat()) }
             }
         )
     }
 
     Chart(
-        chart = lineChart(
-            lines = active.map { lineSpec(lineColor = it.color) }
-        ),
+        chart = lineChart(lines = active.map { lineSpec(lineColor = it.color) }),
         chartModelProducer = producer,
         startAxis = rememberStartAxis(),
         bottomAxis = rememberBottomAxis(
@@ -112,8 +110,8 @@ fun BarChart(
     if (series.isEmpty()) return
 
     val producer = remember { ChartEntryModelProducer() }
-    LaunchedEffect(series) {
-        producer.setEntries(series.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.toFloat()) })
+    LaunchedEffect(series.size) {
+        producer.setEntries(series.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.safeFloat()) })
     }
 
     Column(modifier = modifier) {
@@ -145,14 +143,22 @@ fun ComparisonBarChart(
     title: String = "",
     modifier: Modifier = Modifier
 ) {
-    if (series1.isEmpty() && series2.isEmpty()) return
+    // Normalizar: si una serie está vacía, rellenar con 0.0 del tamaño de la otra
+    val size = maxOf(series1.size, series2.size)
+    if (size == 0) return
+
+    val s1 = if (series1.isEmpty()) List(size) { 0.0 } else series1
+    val s2 = if (series2.isEmpty()) List(size) { 0.0 } else series2
 
     val producer = remember { ChartEntryModelProducer() }
-    LaunchedEffect(series1, series2) {
+
+    // Usar el hash del contenido como key para que LaunchedEffect se dispare correctamente
+    val key = remember(s1, s2) { s1.hashCode() * 31 + s2.hashCode() }
+    LaunchedEffect(key) {
         producer.setEntries(
             listOf(
-                series1.mapIndexed { i, v -> entryOf(i.toFloat(), v.toFloat()) },
-                series2.mapIndexed { i, v -> entryOf(i.toFloat(), v.toFloat()) }
+                s1.mapIndexed { i, v -> entryOf(i.toFloat(), v.safeFloat()) },
+                s2.mapIndexed { i, v -> entryOf(i.toFloat(), v.safeFloat()) }
             )
         )
     }
