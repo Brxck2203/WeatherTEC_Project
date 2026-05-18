@@ -34,9 +34,14 @@ fun SingleLineChart(
     if (values.isEmpty()) return
 
     val producer = remember { ChartEntryModelProducer() }
+    var ready by remember { mutableStateOf(false) }
+
     LaunchedEffect(values.size) {
         producer.setEntries(values.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.safeFloat()) })
+        ready = true
     }
+
+    if (!ready) return
 
     Column(modifier = modifier) {
         if (title.isNotEmpty()) {
@@ -78,6 +83,7 @@ fun MultiLineChart(
 
     val labels = active.first().points.map { it.first }
     val producer = remember { ChartEntryModelProducer() }
+    var ready by remember { mutableStateOf(false) }
 
     LaunchedEffect(showTemp, showHum, showWind, tempValues.size, humValues.size, windValues.size) {
         producer.setEntries(
@@ -85,7 +91,10 @@ fun MultiLineChart(
                 serie.points.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.safeFloat()) }
             }
         )
+        ready = true
     }
+
+    if (!ready) return
 
     Chart(
         chart = lineChart(lines = active.map { lineSpec(lineColor = it.color) }),
@@ -110,9 +119,14 @@ fun BarChart(
     if (series.isEmpty()) return
 
     val producer = remember { ChartEntryModelProducer() }
+    var ready by remember { mutableStateOf(false) }
+
     LaunchedEffect(series.size) {
         producer.setEntries(series.mapIndexed { i, (_, v) -> entryOf(i.toFloat(), v.safeFloat()) })
+        ready = true
     }
+
+    if (!ready) return
 
     Column(modifier = modifier) {
         if (title.isNotEmpty()) {
@@ -143,7 +157,6 @@ fun ComparisonBarChart(
     title: String = "",
     modifier: Modifier = Modifier
 ) {
-    // Normalizar: si una serie está vacía, rellenar con 0.0 del tamaño de la otra
     val size = maxOf(series1.size, series2.size)
     if (size == 0) return
 
@@ -151,8 +164,8 @@ fun ComparisonBarChart(
     val s2 = if (series2.isEmpty()) List(size) { 0.0 } else series2
 
     val producer = remember { ChartEntryModelProducer() }
+    var ready by remember { mutableStateOf(false) }
 
-    // Usar el hash del contenido como key para que LaunchedEffect se dispare correctamente
     val key = remember(s1, s2) { s1.hashCode() * 31 + s2.hashCode() }
     LaunchedEffect(key) {
         producer.setEntries(
@@ -161,7 +174,11 @@ fun ComparisonBarChart(
                 s2.mapIndexed { i, v -> entryOf(i.toFloat(), v.safeFloat()) }
             )
         )
+        ready = true
     }
+
+    // No renderizar la gráfica hasta que el producer tenga datos
+    if (!ready) return
 
     Column(modifier = modifier) {
         if (title.isNotEmpty()) {

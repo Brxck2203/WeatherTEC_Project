@@ -55,10 +55,13 @@ fun SectionTitle(text: String) {
     )
 }
 
+// fillMaxWidth en lugar de fillMaxSize — evita crash dentro de Column con verticalScroll
 @Composable
 fun LoadingScreen() {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -72,7 +75,9 @@ fun LoadingScreen() {
 @Composable
 fun EmptyScreen(message: String = "Sin datos disponibles") {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
@@ -86,7 +91,9 @@ fun EmptyScreen(message: String = "Sin datos disponibles") {
 @Composable
 fun ErrorScreen(message: String, onRetry: (() -> Unit)? = null) {
     Box(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
